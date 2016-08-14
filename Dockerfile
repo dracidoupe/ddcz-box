@@ -16,6 +16,7 @@ RUN groupadd w-dracidoupe-cz && \
     mkdir -p /var/www/fastcgi/sockets/w-dracidoupe-cz/ && \
     chown -R w-dracidoupe-cz:wwwserver /var/www/fastcgi/sockets/w-dracidoupe-cz/
 
-VOLUME ['/var/www/fastcgi/sockets', '/var/www/dracidoupe.cz']
+# VOLUME ['/var/www/fastcgi/sockets']
+# VOLUME ['/var/www/dracidoupe.cz']
 
 WORKDIR /var/www/dracidoupe.cz/

@@ -12,8 +12,10 @@ RUN groupadd w-dracidoupe-cz && \
     groupadd wwwserver && \
     useradd lighttpd -g www-data -g wwwserver && \
     mkdir /etc/service/dracidoupe.cz && \
-    mkdir -p /var/www/dracidoupe.cz/www_root/www/php/
+    mkdir -p /var/www/dracidoupe.cz/www_root/www/php/ && \
+    mkdir -p /var/www/fastcgi/sockets/w-dracidoupe-cz/ && \
+    chown -R w-dracidoupe-cz:wwwserver /var/www/fastcgi/sockets/w-dracidoupe-cz/
 
-EXPOSE 80 443
+VOLUME ['/var/www/fastcgi/sockets', '/var/www/dracidoupe.cz']
 
 WORKDIR /var/www/dracidoupe.cz/

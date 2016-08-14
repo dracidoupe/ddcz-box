@@ -9,6 +9,8 @@ RUN echo "deb http://archive.debian.org/debian squeeze main" > /etc/apt/sources.
 
 RUN groupadd w-dracidoupe-cz && \
     useradd w-dracidoupe-cz -g w-dracidoupe-cz && \
+    groupadd wwwserver && \
+    useradd lighttpd -g www-data -g wwwserver
     mkdir /etc/service/dracidoupe.cz && \
     mkdir -p /var/www/dracidoupe.cz/www_root/www/php/
 

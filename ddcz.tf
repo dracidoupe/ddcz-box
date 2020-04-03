@@ -3,11 +3,6 @@ provider "aws" {
   region  = "us-east-1"
 }
 
-locals {
-  vpc_id    = "..."
-  subnet_id = "..."
-}
-
 resource "aws_ebs_volume" "ddcz_code" {
   availability_zone = "us-east-1a"
   size              = 3
@@ -16,6 +11,11 @@ resource "aws_ebs_volume" "ddcz_code" {
       "Name" = "ddcz-code"
       "product" = "ddcz"
   }
+}
+
+resource "aws_key_pair" "penpen" {
+  key_name   = "penpen"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCEqL1cYHsgiTuo6OdjPhFYzKbxATotj6edn4ISiLDMFnyNtjSJAD83jU//dzR91Q2VkTOeQAW6CTwCFDFZksFeZFAsZOaA/DiidHhF4lHCEcnH8G+L2rBHWW/4kS1754eccGNxawjZbL4UlZHKHWEE7hCwNapFf6HFQwZ0U5bM0dQC0yhfBdVizEkX2dTR9isRBt07Ro3Gicf2sBLOJ6o9N2pkHR05cvzT16AUvgAd9jwACMJjrOsWiaEvyqtODkb42pZ79Tjyy6OZKh+Kc/R6Whfz2CkAm9J5Zn0aB2v0cLorAysqZNa8kLXW8fXLDxCJ027LlGuf0qRJDjApFdCh"
 }
 
 resource "aws_volume_attachment" "ebs_att" {
@@ -80,6 +80,7 @@ resource "aws_security_group" "sg_ddcz" {
 resource "aws_instance" "ddcz" {
   ami           = "ami-80e915e9"
   instance_type = "t1.micro"
+  key_name      = aws_key_pair.penpen.key_name
 #   security_groups = [
 #       "sg_ddcz",
 #   ]
@@ -90,7 +91,7 @@ resource "aws_instance" "ddcz" {
 
   connection {
     type        = "ssh"
-    user        = "ec2-user"
+    user        = "root"
     private_key = file("~/.ssh/aws-penpen.pem")
     host        = self.public_ip
   }

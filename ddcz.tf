@@ -12,6 +12,7 @@ resource "aws_ebs_volume" "ddcz_code" {
   availability_zone = "us-east-1a"
   size              = 3
   type              = "standard"
+  skip_destroy      = true
   tags              = {
       "Name" = "ddcz-code"
       "product" = "ddcz"
@@ -21,12 +22,6 @@ resource "aws_ebs_volume" "ddcz_code" {
 resource "aws_key_pair" "penpen" {
   key_name   = "penpen"
   public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCEqL1cYHsgiTuo6OdjPhFYzKbxATotj6edn4ISiLDMFnyNtjSJAD83jU//dzR91Q2VkTOeQAW6CTwCFDFZksFeZFAsZOaA/DiidHhF4lHCEcnH8G+L2rBHWW/4kS1754eccGNxawjZbL4UlZHKHWEE7hCwNapFf6HFQwZ0U5bM0dQC0yhfBdVizEkX2dTR9isRBt07Ro3Gicf2sBLOJ6o9N2pkHR05cvzT16AUvgAd9jwACMJjrOsWiaEvyqtODkb42pZ79Tjyy6OZKh+Kc/R6Whfz2CkAm9J5Zn0aB2v0cLorAysqZNa8kLXW8fXLDxCJ027LlGuf0qRJDjApFdCh"
-}
-
-resource "aws_volume_attachment" "ebs_att" {
-  device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.ddcz_code.id
-  instance_id = aws_instance.ddcz.id
 }
 
 resource "aws_vpc" "ddcz_prod" {
@@ -187,28 +182,42 @@ resource "aws_instance" "ddcz" {
     private_key = file("~/.ssh/aws-penpen.pem")
     host        = self.public_ip
   }
-
+  
+  user_data = file("setup.sh")
+  
   tags              = {
       "product" = "ddcz"
   }
 
-  provisioner "remote-exec" {
-    inline = [
-        "mkdir /var/www",
-        "mount -t ext4 /dev/xvdf1 /var/www",
-        "sudo echo 'deb http://archive.debian.org/debian squeeze main' > /etc/apt/sources.list'",
-        "sudo echo 'deb http://archive.debian.org/debian squeeze-lts main' >> /etc/apt/sources.list",
-        "sudo echo 'Acquire::Check-Valid-Until false;' > /etc/apt/apt.conf",
-        "sudo apt-get update",
-        "sudo apt-get -y --force-yes -q install lighttpd php5-cgi php5-cli php5-curl php5-imagick php5-mysql daemontools daemontools-run procps spawn-fcgi",
-        "groupadd w-dracidoupe-cz",
-        "useradd w-dracidoupe-cz -g w-dracidoupe-cz",
-        "groupadd wwwserver",
-        "useradd lighttpd -g www-data -g wwwserver",
-        "mkdir /etc/service/dracidoupe.cz",
-        "mkdir -p /var/www/dracidoupe.cz/www_root/www/php/",
-        "mkdir -p /var/www/fastcgi/sockets/w-dracidoupe-cz/",
-        "chown -R w-dracidoupe-cz:wwwserver /var/www/fastcgi/sockets/w-dracidoupe-cz/",
-    ]
+  provisioner "file" {
+    source      = "conf/myapp.conf"
+    destination = "/etc/myapp.conf"
   }
+
+
+#   provisioner "remote-exec" {
+#     inline = [
+#         "mkdir /var/www",
+#         "mount -t ext4 /dev/xvdf1 /var/www",
+#         "sudo echo 'deb http://archive.debian.org/debian squeeze main' > /etc/apt/sources.list'",
+#         "sudo echo 'deb http://archive.debian.org/debian squeeze-lts main' >> /etc/apt/sources.list",
+#         "sudo echo 'Acquire::Check-Valid-Until false;' > /etc/apt/apt.conf",
+#         "sudo apt-get update",
+#         "sudo apt-get -y --force-yes -q install lighttpd php5-cgi php5-cli php5-curl php5-imagick php5-mysql daemontools daemontools-run procps spawn-fcgi",
+#         "groupadd w-dracidoupe-cz",
+#         "useradd w-dracidoupe-cz -g w-dracidoupe-cz",
+#         "groupadd wwwserver",
+#         "useradd lighttpd -g www-data -g wwwserver",
+#         "mkdir /etc/service/dracidoupe.cz",
+#         "mkdir -p /var/www/dracidoupe.cz/www_root/www/php/",
+#         "mkdir -p /var/www/fastcgi/sockets/w-dracidoupe-cz/",
+#         "chown -R w-dracidoupe-cz:wwwserver /var/www/fastcgi/sockets/w-dracidoupe-cz/",
+#     ]
+#   }
+}
+
+resource "aws_volume_attachment" "ebs_att" {
+  device_name = "/dev/xvdf"
+  volume_id   = aws_ebs_volume.ddcz_code.id
+  instance_id = aws_instance.ddcz.id
 }

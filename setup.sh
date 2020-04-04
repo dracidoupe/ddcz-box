@@ -1,4 +1,7 @@
 #! /bin/bash
+mkdir -p /etc/service/dracidoupe.cz && \
+mkdir -p /etc/lighttpd/modules && \
+mkdir -p /etc/lighttpd/sites && \
 localedef -i en_US -c -f UTF-8 en_US && \
 echo "deb http://archive.debian.org/debian squeeze main" > /etc/apt/sources.list && \
 echo "deb http://archive.debian.org/debian squeeze-lts main" >> /etc/apt/sources.list && \
@@ -10,7 +13,6 @@ groupadd w-dracidoupe-cz && \
 useradd w-dracidoupe-cz -g w-dracidoupe-cz && \
 groupadd wwwserver && \
 useradd lighttpd -g www-data -g wwwserver && \
-mkdir /etc/service/dracidoupe.cz && \
 
 mount -t ext4 /dev/xvdf1 /var/www && \
 mkdir /var/www/null ;

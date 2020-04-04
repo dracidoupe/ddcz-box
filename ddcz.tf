@@ -6,13 +6,13 @@ provider "aws" {
 
 locals {
     internet_cidr = "0.0.0.0/0"
+    az = "us-east-1a"
 }
 
 resource "aws_ebs_volume" "ddcz_code" {
-  availability_zone = "us-east-1a"
+  availability_zone = local.az
   size              = 3
   type              = "standard"
-  skip_destroy      = true
   tags              = {
       "Name" = "ddcz-code"
       "product" = "ddcz"
@@ -34,6 +34,7 @@ resource "aws_vpc" "ddcz_prod" {
 }
 
 resource "aws_subnet" "ddcz_prod" {
+  availability_zone = local.az
   vpc_id     = aws_vpc.ddcz_prod.id
   cidr_block = "192.168.1.0/24"
   map_public_ip_on_launch = true
@@ -168,6 +169,7 @@ resource "aws_instance" "ddcz" {
   ami           = "ami-80e915e9"
   instance_type = "t1.micro"
   key_name      = aws_key_pair.penpen.key_name
+  availability_zone = local.az
 #   security_groups = [
 #       "sg_ddcz",
 #   ]
@@ -185,10 +187,6 @@ resource "aws_instance" "ddcz" {
   
   user_data = file("setup.sh")
   
-  tags              = {
-      "product" = "ddcz"
-  }
-
   provisioner "file" {
     source      = "etc/services/run"
     destination = "/etc/service/dracidoupe.cz/run"
@@ -212,6 +210,10 @@ resource "aws_instance" "ddcz" {
   provisioner "file" {
     source      = "etc/sites/dracidoupe.cz"
     destination = "/etc/lighttpd/sites/dracidoupe.cz"
+  }
+
+  tags              = {
+      "product" = "ddcz"
   }
 
 
@@ -240,4 +242,5 @@ resource "aws_volume_attachment" "ebs_att" {
   device_name = "/dev/xvdf"
   volume_id   = aws_ebs_volume.ddcz_code.id
   instance_id = aws_instance.ddcz.id
+  skip_destroy      = true
 }

@@ -1,6 +1,11 @@
 provider "aws" {
   version = "~> 2.0"
   region  = "us-east-1"
+  
+}
+
+locals {
+    internet_cidr = "0.0.0.0/0"
 }
 
 resource "aws_ebs_volume" "ddcz_code" {
@@ -32,9 +37,11 @@ resource "aws_vpc" "ddcz_prod" {
   }
 
 }
+
 resource "aws_subnet" "ddcz_prod" {
   vpc_id     = aws_vpc.ddcz_prod.id
   cidr_block = "192.168.1.0/24"
+  map_public_ip_on_launch = true
 
   tags              = {
       "product" = "ddcz"
@@ -42,6 +49,91 @@ resource "aws_subnet" "ddcz_prod" {
 
 }
 
+resource "aws_internet_gateway" "ddcz_prod" {
+  vpc_id = aws_vpc.ddcz_prod.id
+
+  tags              = {
+      "product" = "ddcz"
+  }
+}
+
+resource "aws_route_table" "ddcz_prod" {
+ vpc_id = aws_vpc.ddcz_prod.id
+ route {
+    cidr_block = local.internet_cidr
+    gateway_id = aws_internet_gateway.ddcz_prod.id
+ }
+ tags = {
+      "product" = "ddcz"
+ }
+}
+resource "aws_route_table_association" "ddcz_prod" {
+  subnet_id      = aws_subnet.ddcz_prod.id
+  route_table_id = aws_route_table.ddcz_prod.id
+}
+
+resource "aws_network_acl" "ddcz_prod" {
+  vpc_id = aws_vpc.ddcz_prod.id
+  subnet_ids = [ aws_subnet.ddcz_prod.id ]
+
+  ingress {
+      protocol = "all"
+      rule_no = 100
+      action = "allow"
+      cidr_block = local.internet_cidr
+      from_port = 0
+      to_port = 0
+  }
+
+  egress {
+      protocol = "all"
+      rule_no = 100
+      action = "allow"
+      cidr_block = local.internet_cidr
+      from_port = 0
+      to_port = 0
+  }
+
+#   ingress {
+#     protocol   = "tcp"
+#     rule_no    = 100
+#     action     = "allow"
+#     cidr_block = local.internet_cidr
+#     from_port  = 22
+#     to_port    = 22
+#   }
+  
+#   ingress {
+#     protocol   = "tcp"
+#     rule_no    = 200
+#     action     = "allow"
+#     cidr_block = local.internet_cidr
+#     from_port  = 80
+#     to_port    = 80
+#   }
+  
+#   egress {
+#     protocol   = "tcp"
+#     rule_no    = 100
+#     action     = "allow"
+#     cidr_block = local.internet_cidr
+#     from_port  = 22 
+#     to_port    = 22
+#   }
+  
+#   egress {
+#     protocol   = "tcp"
+#     rule_no    = 200
+#     action     = "allow"
+#     cidr_block = local.internet_cidr
+#     from_port  = 80  
+#     to_port    = 80 
+#   }
+ 
+   tags = {
+    "product" = "ddcz"
+   }
+}
 
 resource "aws_security_group" "sg_ddcz" {
   name        = "sg_ddcz"
@@ -53,7 +145,7 @@ resource "aws_security_group" "sg_ddcz" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [local.internet_cidr]
   }
 
   ingress {
@@ -61,14 +153,14 @@ resource "aws_security_group" "sg_ddcz" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [local.internet_cidr]
   }
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [local.internet_cidr]
   }
 
   tags              = {
@@ -103,7 +195,7 @@ resource "aws_instance" "ddcz" {
   provisioner "remote-exec" {
     inline = [
         "mkdir /var/www",
-        "mount /dev/xvdf1 /var/www",
+        "mount -t ext4 /dev/xvdf1 /var/www",
         "sudo echo 'deb http://archive.debian.org/debian squeeze main' > /etc/apt/sources.list'",
         "sudo echo 'deb http://archive.debian.org/debian squeeze-lts main' >> /etc/apt/sources.list",
         "sudo echo 'Acquire::Check-Valid-Until false;' > /etc/apt/apt.conf",

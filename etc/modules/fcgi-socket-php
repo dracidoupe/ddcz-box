@@ -1,0 +1,8 @@
+fastcgi.server += ( 
+        ".php" => (
+                (
+                        "socket" => phpsocket + ".socket",
+                        "broken-scriptfilename" => "enable"
+                )
+        )
+)

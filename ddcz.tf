@@ -190,8 +190,28 @@ resource "aws_instance" "ddcz" {
   }
 
   provisioner "file" {
-    source      = "conf/myapp.conf"
-    destination = "/etc/myapp.conf"
+    source      = "etc/services/run"
+    destination = "/etc/service/dracidoupe.cz/run"
+  }
+
+  provisioner "file" {
+    source      = "etc/lighttpd.conf"
+    destination = "/etc/lighttpd/lighttpd.conf"
+  }
+
+  provisioner "file" {
+    source      = "etc/modules/custom-access-log"
+    destination = "/etc/lighttpd/modules/custom-access-log"
+  }
+
+  provisioner "file" {
+    source      = "etc/modules/fcgi-socket-php"
+    destination = "/etc/lighttpd/modules/fcgi-socket-php"
+  }
+
+  provisioner "file" {
+    source      = "etc/sites/dracidoupe.cz"
+    destination = "/etc/lighttpd/sites/dracidoupe.cz"
   }
 
 

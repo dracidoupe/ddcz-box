@@ -1,0 +1,20 @@
+$HTTP["host"] == "dracidoupe.cz" {
+        url.redirect = ( "^/(.*)" => "//www.dracidoupe.cz/$1" )
+}
+
+$HTTP["host"] == "moudrasova.dracidoupe.cz" {
+        url.redirect = ( "^/(.*)" => "//www.dracidoupe.cz/moudrasova/$1" )
+}
+
+$HTTP["host"] =~ "(.*)\.dracidoupe\.cz" {
+  var.phpsocket = "/var/www/fastcgi/sockets/w-dracidoupe-cz/dracidoupe.cz"
+  var.phpini = "/var/www/dracidoupe.cz/www_root/www/php/php.ini"
+  var.servername = "dracidoupe.cz"
+
+  include "modules/fcgi-socket-php" 
+  include "modules/custom-access-log"
+  
+  url.rewrite-once = ( "^/rss/putyka/([0-9a-z]+)(\/)?$" => "/code/api/putyka_rss.php?api_key=$1" )
+  
+}
+

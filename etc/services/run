@@ -1,0 +1,64 @@
+#!/bin/sh
+
+exec 2>&1
+
+## ABSOLUTE path to the spawn-fcgi binary
+SPAWNFCGI="/usr/bin/spawn-fcgi"
+
+## ABSOLUTE path to the PHP binary
+FCGIPROGRAM="/usr/bin/php5-cgi"
+
+## socket - must be same as in PHP script
+FCGISOCKET="/var/www/fastcgi/sockets/w-dracidoupe-cz/dracidoupe.cz.socket"
+
+## for separate php.ini
+PHPRC="/var/www/dracidoupe.cz/www_root/www/php"
+
+## number of PHP childs to spawn in addition to the default. Minimum of 2.
+## Actual childs = PHP_FCGI_CHILDREN + 1
+PHP_FCGI_CHILDREN=5
+
+## number of request server by a single php-process until is will be restarted
+PHP_FCGI_MAX_REQUESTS=1000
+
+## IP adresses where PHP should access server connections from
+FCGI_WEB_SERVER_ADDRS="127.0.0.1"
+
+# allowed environment variables sperated by spaces
+ALLOWED_ENV="PATH USER"
+
+USERID=w-dracidoupe-cz
+GROUPID=w-dracidoupe-cz
+
+if test x$PHP_FCGI_CHILDREN = x; then
+  PHP_FCGI_CHILDREN=5
+fi
+
+export PHP_FCGI_MAX_REQUESTS
+export FCGI_WEB_SERVER_ADDRS
+export PHPRC
+export FCGISOCKET
+export FCGIPROGRAM
+
+ALLOWED_ENV="$ALLOWED_ENV PHP_FCGI_MAX_REQUESTS FCGI_WEB_SERVER_ADDRS PHPRC FCGISOCKET FCGIPROGRAM"
+
+# copy the allowed environment variables
+E=
+
+for i in $ALLOWED_ENV; do
+  E="$E $i=$(eval echo "\$$i")"
+done
+
+DIR="$( cd "$( dirname "$0" )" && pwd )"
+
+umask 006
+
+#env - $E exec setuidgid $USERID $SPAWNFCGI -n -s $FCGISOCKET -f $FCGIPROGRAM -C $PHP_FCGI_CHILDREN
+echo "exec $SPAWNFCGI -u $USERID -g $GROUPID -G www-data -n -s $FCGISOCKET -f $FCGIPROGRAM -C $PHP_FCGI_CHILDREN"
+exec $SPAWNFCGI -u $USERID -g $GROUPID -G www-data -n -s $FCGISOCKET -f $FCGIPROGRAM -C $PHP_FCGI_CHILDREN
+
+
+#chown $USERID:$GROUPID $FCGISOCKET
+#chmod 770 $FCGISOCKET
+
+#exec setuidgid $USERID $FCGIPROGRAM

@@ -1,23 +1,35 @@
+terraform {
+  backend "s3" {
+    bucket = "almad-terraform-states"
+    key    = "ddcz/state"
+    region = "eu-central-1"
+  }
+}
+
+
 provider "aws" {
   version = "~> 2.0"
-  region  = "us-east-1"
+  region  = "eu-central-1"
   
 }
 
 locals {
     internet_cidr = "0.0.0.0/0"
-    az = "us-east-1a"
+    az = "eu-central-1b"
+    secondary_az = "eu-central-1a"
 }
 
-resource "aws_ebs_volume" "ddcz_code" {
-  availability_zone = local.az
-  size              = 3
-  type              = "standard"
-  tags              = {
-      "Name" = "ddcz-code"
-      "product" = "ddcz"
-  }
-}
+variable "RDS_PASSWORD" {}
+
+# resource "aws_ebs_volume" "ddcz_code" {
+#   availability_zone = local.az
+#   size              = 3
+#   type              = "standard"
+#   tags              = {
+#       "Name" = "ddcz-code"
+#       "product" = "ddcz"
+#   }
+# }
 
 resource "aws_key_pair" "penpen" {
   key_name   = "penpen"
@@ -26,6 +38,9 @@ resource "aws_key_pair" "penpen" {
 
 resource "aws_vpc" "ddcz_prod" {
   cidr_block = "192.168.0.0/16"
+  instance_tenancy = "default"
+  enable_dns_support = "true"
+  enable_dns_hostnames = "true"
 
   tags              = {
       "product" = "ddcz"
@@ -42,8 +57,20 @@ resource "aws_subnet" "ddcz_prod" {
   tags              = {
       "product" = "ddcz"
   }
+}
+
+resource "aws_subnet" "ddcz_secondary_az" {
+  availability_zone = local.secondary_az
+  vpc_id     = aws_vpc.ddcz_prod.id
+  cidr_block = "192.168.2.0/24"
+  map_public_ip_on_launch = true
+
+  tags              = {
+      "product" = "ddcz"
+  }
 
 }
+
 
 resource "aws_internet_gateway" "ddcz_prod" {
   vpc_id = aws_vpc.ddcz_prod.id
@@ -131,7 +158,7 @@ resource "aws_network_acl" "ddcz_prod" {
    }
 }
 
-resource "aws_security_group" "sg_ddcz" {
+resource "aws_security_group" "ddcz" {
   name        = "sg_ddcz"
   description = "SG for DDCZ"
   vpc_id      = aws_vpc.ddcz_prod.id
@@ -152,6 +179,14 @@ resource "aws_security_group" "sg_ddcz" {
     cidr_blocks = [local.internet_cidr]
   }
 
+  ingress {
+    description = "RDS  from the world (because Heroku)"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [local.internet_cidr]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -165,18 +200,63 @@ resource "aws_security_group" "sg_ddcz" {
 
 }
 
+resource "aws_db_subnet_group" "ddcz_mysql" {
+    name = "ddcz-mysql-subnet"
+    description = "RDS subnet group"
+    subnet_ids = [aws_subnet.ddcz_prod.id, aws_subnet.ddcz_secondary_az.id]
+}
+
+
+resource "aws_db_instance" "mysql" {
+    availability_zone = local.az
+    allocated_storage = 20
+    engine = "mysql"
+    engine_version = "5.7"
+    instance_class = "db.t3.micro"
+    identifier = "ddcz-mysql"
+    name = "dracidoupe_cz"
+    username = "root"
+    password = var.RDS_PASSWORD
+    parameter_group_name = "default.mysql5.7"
+    skip_final_snapshot = true
+    final_snapshot_identifier = "ddcz-mysql-snap"
+
+    multi_az = "false"
+
+    db_subnet_group_name = aws_db_subnet_group.ddcz_mysql.name
+    vpc_security_group_ids = [aws_security_group.ddcz.id]
+
+    storage_type = "standard"
+
+    tags = {
+        "product" = "ddcz"
+    }
+}
+
+
+
+resource "aws_eip" "ddcz" {
+  instance = aws_instance.ddcz.id
+  vpc      = true
+  depends_on = [aws_internet_gateway.ddcz_prod, aws_instance.ddcz]
+}
+
 resource "aws_instance" "ddcz" {
-  ami           = "ami-80e915e9"
-  instance_type = "t1.micro"
+  ami           = "ami-041855a8b7934ebae"
+  instance_type = "t2.nano"
   key_name      = aws_key_pair.penpen.key_name
   availability_zone = local.az
-#   security_groups = [
-#       "sg_ddcz",
-#   ]
 
   associate_public_ip_address = true
-  vpc_security_group_ids = [aws_security_group.sg_ddcz.id]
+  vpc_security_group_ids = [aws_security_group.ddcz.id]
   subnet_id              = aws_subnet.ddcz_prod.id
+
+  root_block_device {
+    volume_type = "standard"
+    volume_size = 4
+    delete_on_termination = true
+  }
+
 
   connection {
     type        = "ssh"
@@ -185,7 +265,7 @@ resource "aws_instance" "ddcz" {
     host        = self.public_ip
   }
   
-  user_data = file("setup.sh")
+#  user_data = file("setup.sh")
   
   provisioner "file" {
     source      = "etc/services/run"
@@ -198,19 +278,24 @@ resource "aws_instance" "ddcz" {
   }
 
   provisioner "file" {
-    source      = "etc/modules/custom-access-log"
-    destination = "/etc/lighttpd/modules/custom-access-log"
+    source      = "dbcore.php"
+    destination = "/var/www/dracidoupe.cz/www_root/www/htdocs/dbcore.php"
   }
 
-  provisioner "file" {
-    source      = "etc/modules/fcgi-socket-php"
-    destination = "/etc/lighttpd/modules/fcgi-socket-php"
-  }
+#   provisioner "file" {
+#     source      = "etc/modules/custom-access-log"
+#     destination = "/etc/lighttpd/modules/custom-access-log"
+#   }
 
-  provisioner "file" {
-    source      = "etc/sites/dracidoupe.cz"
-    destination = "/etc/lighttpd/sites/dracidoupe.cz"
-  }
+#   provisioner "file" {
+#     source      = "etc/modules/fcgi-socket-php"
+#     destination = "/etc/lighttpd/modules/fcgi-socket-php"
+#   }
+
+#   provisioner "file" {
+#     source      = "etc/sites/dracidoupe.cz"
+#     destination = "/etc/lighttpd/sites/dracidoupe.cz"
+#   }
 
   tags              = {
       "product" = "ddcz"
@@ -238,9 +323,9 @@ resource "aws_instance" "ddcz" {
 #   }
 }
 
-resource "aws_volume_attachment" "ebs_att" {
-  device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.ddcz_code.id
-  instance_id = aws_instance.ddcz.id
-  skip_destroy      = true
-}
+# resource "aws_volume_attachment" "ebs_att" {
+#   device_name = "/dev/xvdf"
+#   volume_id   = aws_ebs_volume.ddcz_code.id
+#   instance_id = aws_instance.ddcz.id
+#   skip_destroy      = true
+# }

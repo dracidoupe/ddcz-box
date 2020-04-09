@@ -1,0 +1,9 @@
+[
+  {
+    "Description": "DDCZ Base",
+    "Format": "vhd",
+    "UserBucket": {
+        "S3Bucket": "ddcz-eu-images",
+        "S3Key": "ddcz-code.vhd"
+    }
+}]

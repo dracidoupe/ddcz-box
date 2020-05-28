@@ -21,15 +21,15 @@ locals {
 
 variable "RDS_PASSWORD" {}
 
-# resource "aws_ebs_volume" "ddcz_code" {
-#   availability_zone = local.az
-#   size              = 3
-#   type              = "standard"
-#   tags              = {
-#       "Name" = "ddcz-code"
-#       "product" = "ddcz"
-#   }
-# }
+resource "aws_ebs_volume" "ddcz_userdata_backup" {
+  availability_zone = local.az
+  size              = 1
+  type              = "standard"
+  tags              = {
+      "Name" = "ddcz-userbackup"
+      "product" = "ddcz"
+  }
+}
 
 resource "aws_key_pair" "penpen" {
   key_name   = "penpen"
@@ -323,9 +323,9 @@ resource "aws_instance" "ddcz" {
 #   }
 }
 
-# resource "aws_volume_attachment" "ebs_att" {
-#   device_name = "/dev/xvdf"
-#   volume_id   = aws_ebs_volume.ddcz_code.id
-#   instance_id = aws_instance.ddcz.id
-#   skip_destroy      = true
-# }
+resource "aws_volume_attachment" "ebs_att" {
+  device_name  = "/dev/xvdf"
+  volume_id    = aws_ebs_volume.ddcz_userdata_backup.id
+  instance_id  = aws_instance.ddcz.id
+  skip_destroy = true
+}

@@ -234,6 +234,14 @@ resource "aws_db_instance" "mysql" {
     }
 }
 
+resource "aws_s3_bucket" "ddcz_uploads_bucket" {
+  bucket = "uploady.dracidoupe.cz"
+  acl    = "public-read"
+
+  tags = {
+    "product" = "ddcz"
+  }
+}
 
 
 resource "aws_eip" "ddcz" {

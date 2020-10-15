@@ -227,6 +227,7 @@ resource "aws_db_instance" "mysql" {
     vpc_security_group_ids = [aws_security_group.ddcz.id]
 
     storage_type = "standard"
+    publicly_accessible = "true"
 
     tags = {
         "product" = "ddcz"
@@ -244,6 +245,7 @@ resource "aws_eip" "ddcz" {
 resource "aws_instance" "ddcz" {
   ami           = "ami-041855a8b7934ebae"
   instance_type = "t2.nano"
+  disable_api_termination = "true"
   key_name      = aws_key_pair.penpen.key_name
   availability_zone = local.az
 

@@ -8,8 +8,12 @@ terraform {
 
 
 provider "aws" {
-  version = "~> 2.0"
   region  = "eu-central-1"
+}
+
+provider "aws" {
+  region = "us-east-1"
+  alias = "global_home"
 }
 
 locals {
@@ -341,12 +345,16 @@ resource "aws_volume_attachment" "ebs_att" {
   skip_destroy = true
 }
 
-# resource "aws_acm_certificate" "certificate" {
-#   domain_name       = local.user_uploads_domain]
-#   validation_method = "EMAIL"
+resource "aws_acm_certificate" "ddcz_certificate" {
+  domain_name       = local.user_uploads_domain
+  validation_method = "DNS"
 
-#   # subject_alternative_names = ["dracidoupe.cz"]
-# }
+  // certificate MUST be located in us-east-1 in order to be used for global
+  // services, like CloudFront
+  provider = aws.global_home
+
+  # subject_alternative_names = ["dracidoupe.cz"]
+}
 
 resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
   origin {
@@ -358,6 +366,7 @@ resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
   is_ipv6_enabled = true
   default_root_object = "index.html"
   price_class = "PriceClass_100"
+  # description = "HTTPS termination point for user-uploaded content on DDCZ"
 
   # aliases = [local.user_uploads_domain]
 
@@ -397,14 +406,9 @@ resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn = "${aws_acm_certificate.ddcz_certificate.arn}"
+    ssl_support_method  = "sni-only"
   }
-
-  // This is we'd like to switch to ACM/Let's Encrypt
-  # viewer_certificate {
-  #   acm_certificate_arn = "${aws_acm_certificate.certificate.arn}"
-  #   ssl_support_method  = "sni-only"
-  # }
 
   restrictions {
     geo_restriction {

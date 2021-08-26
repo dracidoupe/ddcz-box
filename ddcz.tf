@@ -1,4 +1,11 @@
 terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+  }
+
   backend "s3" {
     bucket = "almad-terraform-states"
     key    = "ddcz/state"
@@ -215,7 +222,7 @@ resource "aws_db_instance" "mysql" {
   availability_zone         = local.az
   allocated_storage         = 20
   engine                    = "mysql"
-  engine_version            = "5.7"
+  engine_version            = "5.7.26"
   instance_class            = "db.t3.micro"
   identifier                = "ddcz-mysql"
   name                      = "dracidoupe_cz"
@@ -316,6 +323,10 @@ resource "aws_instance" "ddcz" {
     "product" = "ddcz"
   }
 
+  volume_tags = {
+    "Name"    = "ddcz-userbackup"
+    "product" = "ddcz"
+  }
 
   #   provisioner "remote-exec" {
   #     inline = [
@@ -348,6 +359,10 @@ resource "aws_volume_attachment" "ebs_att" {
 resource "aws_acm_certificate" "ddcz_certificate" {
   domain_name       = local.user_uploads_domain
   validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   // certificate MUST be located in us-east-1 in order to be used for global
   // services, like CloudFront
@@ -406,8 +421,9 @@ resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = "${aws_acm_certificate.ddcz_certificate.arn}"
+    acm_certificate_arn = aws_acm_certificate.ddcz_certificate.arn
     ssl_support_method  = "sni-only"
+    minimum_protocol_version = "TLSv1"
   }
 
   restrictions {

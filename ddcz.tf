@@ -19,6 +19,11 @@ provider "aws" {
 }
 
 provider "aws" {
+  region = "eu-west-1"
+  alias = "heroku_eu_home"
+}
+
+provider "aws" {
   region = "us-east-1"
   alias = "global_home"
 }
@@ -28,6 +33,10 @@ locals {
   az            = "eu-central-1b"
   secondary_az  = "eu-central-1a"
   user_uploads_domain = "uploady.dracidoupe.cz"
+
+  heroku_az            = "eu-west-1b"
+  heroku_secondary_az  = "eu-west-1a"
+
 }
 
 variable "RDS_PASSWORD" {}
@@ -83,8 +92,56 @@ resource "aws_subnet" "ddcz_secondary_az" {
 }
 
 
+resource "aws_vpc" "ddcz_prod_heroku" {
+  provider = aws.heroku_eu_home
+  cidr_block           = "192.168.0.0/16"
+  instance_tenancy     = "default"
+  enable_dns_support   = "true"
+  enable_dns_hostnames = "true"
+
+  tags = {
+    "product" = "ddcz"
+  }
+
+}
+
+resource "aws_subnet" "ddcz_prod_heroku" {
+  provider = aws.heroku_eu_home
+  availability_zone       = local.heroku_az
+  vpc_id                  = aws_vpc.ddcz_prod_heroku.id
+  cidr_block              = "192.168.1.0/24"
+  map_public_ip_on_launch = true
+
+  tags = {
+    "product" = "ddcz"
+  }
+}
+
+resource "aws_subnet" "ddcz_secondary_az_heroku" {
+  provider = aws.heroku_eu_home
+  availability_zone       = local.heroku_secondary_az
+  vpc_id                  = aws_vpc.ddcz_prod_heroku.id
+  cidr_block              = "192.168.2.0/24"
+  map_public_ip_on_launch = true
+
+  tags = {
+    "product" = "ddcz"
+  }
+
+}
+
+
 resource "aws_internet_gateway" "ddcz_prod" {
   vpc_id = aws_vpc.ddcz_prod.id
+
+  tags = {
+    "product" = "ddcz"
+  }
+}
+
+resource "aws_internet_gateway" "ddcz_prod_heroku" {
+  provider = aws.heroku_eu_home
+  vpc_id = aws_vpc.ddcz_prod_heroku.id
 
   tags = {
     "product" = "ddcz"
@@ -169,6 +226,8 @@ resource "aws_network_acl" "ddcz_prod" {
   }
 }
 
+
+
 resource "aws_security_group" "ddcz" {
   name        = "sg_ddcz"
   description = "SG for DDCZ"
@@ -211,10 +270,94 @@ resource "aws_security_group" "ddcz" {
 
 }
 
+
+resource "aws_route_table" "ddcz_prod_heroku" {
+  provider = aws.heroku_eu_home
+  vpc_id = aws_vpc.ddcz_prod_heroku.id
+  route {
+    cidr_block = local.internet_cidr
+    gateway_id = aws_internet_gateway.ddcz_prod_heroku.id
+  }
+  tags = {
+    "product" = "ddcz"
+  }
+}
+
+resource "aws_route_table_association" "ddcz_prod_heroku" {
+  provider = aws.heroku_eu_home
+  subnet_id      = aws_subnet.ddcz_prod_heroku.id
+  route_table_id = aws_route_table.ddcz_prod_heroku.id
+}
+
+resource "aws_network_acl" "ddcz_prod_heroku" {
+  provider = aws.heroku_eu_home
+  vpc_id     = aws_vpc.ddcz_prod_heroku.id
+  subnet_ids = [aws_subnet.ddcz_prod_heroku.id]
+
+  ingress {
+    protocol   = "all"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = local.internet_cidr
+    from_port  = 0
+    to_port    = 0
+  }
+
+  egress {
+    protocol   = "all"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = local.internet_cidr
+    from_port  = 0
+    to_port    = 0
+  }
+
+  tags = {
+    "product" = "ddcz"
+  }
+}
+
+
+resource "aws_security_group" "ddcz_heroku" {
+  provider = aws.heroku_eu_home
+
+  name        = "sg_ddcz_heroku"
+  description = "SG for DDCZ"
+  vpc_id      = aws_vpc.ddcz_prod_heroku.id
+
+  ingress {
+    description = "RDS  from the world (because Heroku)"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = [local.internet_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [local.internet_cidr]
+  }
+
+  tags = {
+    "product" = "ddcz"
+  }
+
+}
+
+
 resource "aws_db_subnet_group" "ddcz_mysql" {
   name        = "ddcz-mysql-subnet"
   description = "RDS subnet group"
   subnet_ids  = [aws_subnet.ddcz_prod.id, aws_subnet.ddcz_secondary_az.id]
+}
+
+resource "aws_db_subnet_group" "ddcz_mysql_heroku" {
+  provider = aws.heroku_eu_home
+  name        = "ddcz-mysql-subnet"
+  description = "RDS subnet group"
+  subnet_ids  = [aws_subnet.ddcz_prod_heroku.id, aws_subnet.ddcz_secondary_az_heroku.id]
 }
 
 
@@ -237,6 +380,37 @@ resource "aws_db_instance" "mysql" {
 
   db_subnet_group_name   = aws_db_subnet_group.ddcz_mysql.name
   vpc_security_group_ids = [aws_security_group.ddcz.id]
+
+  storage_type        = "standard"
+  publicly_accessible = "true"
+
+  tags = {
+    "product" = "ddcz"
+  }
+}
+
+resource "aws_db_instance" "mysql_heroku" {
+  provider = aws.heroku_eu_home
+
+
+  availability_zone         = local.heroku_az
+  allocated_storage         = 5
+  engine                    = "mysql"
+  engine_version            = "5.7.34"
+  instance_class            = "db.t3.micro"
+  identifier                = "ddcz-mysql"
+  name                      = "dracidoupe_cz"
+  username                  = "root"
+  password                  = var.RDS_PASSWORD
+  parameter_group_name      = "default.mysql5.7"
+  skip_final_snapshot       = true
+  final_snapshot_identifier = "ddcz-heroku-mysql-snap"
+  deletion_protection = true
+
+  multi_az = "false"
+
+  db_subnet_group_name   = aws_db_subnet_group.ddcz_mysql_heroku.name
+  vpc_security_group_ids = [aws_security_group.ddcz_heroku.id]
 
   storage_type        = "standard"
   publicly_accessible = "true"

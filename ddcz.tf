@@ -249,14 +249,6 @@ resource "aws_security_group" "ddcz" {
     cidr_blocks = [local.internet_cidr]
   }
 
-  ingress {
-    description = "RDS  from the world (because Heroku)"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = [local.internet_cidr]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -347,46 +339,11 @@ resource "aws_security_group" "ddcz_heroku" {
 }
 
 
-resource "aws_db_subnet_group" "ddcz_mysql" {
-  name        = "ddcz-mysql-subnet"
-  description = "RDS subnet group"
-  subnet_ids  = [aws_subnet.ddcz_prod.id, aws_subnet.ddcz_secondary_az.id]
-}
-
 resource "aws_db_subnet_group" "ddcz_mysql_heroku" {
   provider = aws.heroku_eu_home
   name        = "ddcz-mysql-subnet"
   description = "RDS subnet group"
   subnet_ids  = [aws_subnet.ddcz_prod_heroku.id, aws_subnet.ddcz_secondary_az_heroku.id]
-}
-
-
-resource "aws_db_instance" "mysql" {
-  availability_zone         = local.az
-  allocated_storage         = 20
-  engine                    = "mysql"
-  engine_version            = "5.7.26"
-  instance_class            = "db.t3.micro"
-  identifier                = "ddcz-mysql"
-  name                      = "dracidoupe_cz"
-  username                  = "root"
-  password                  = var.RDS_PASSWORD
-  parameter_group_name      = "default.mysql5.7"
-  skip_final_snapshot       = true
-  final_snapshot_identifier = "ddcz-mysql-snap"
-  deletion_protection = true
-
-  multi_az = "false"
-
-  db_subnet_group_name   = aws_db_subnet_group.ddcz_mysql.name
-  vpc_security_group_ids = [aws_security_group.ddcz.id]
-
-  storage_type        = "standard"
-  publicly_accessible = "true"
-
-  tags = {
-    "product" = "ddcz"
-  }
 }
 
 resource "aws_db_instance" "mysql_heroku" {

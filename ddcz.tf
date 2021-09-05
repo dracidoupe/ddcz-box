@@ -383,7 +383,7 @@ resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
   price_class = "PriceClass_100"
   # description = "HTTPS termination point for user-uploaded content on DDCZ"
 
-`  aliases = [local.user_uploads_domain]
+  aliases = [local.user_uploads_domain]
 
 
   default_cache_behavior {

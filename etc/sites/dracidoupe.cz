@@ -7,6 +7,17 @@ $HTTP["host"] == "moudrasova.dracidoupe.cz" {
 }
 
 $HTTP["host"] =~ "(.*)\.dracidoupe\.cz" {
+  auth.backend = "htdigest"
+  auth.backend.htdigest.userfile = "/etc/lighttpd/htdigest/ddcz"
+  auth.require = ( "/" =>
+        (
+        "method"  => "digest",
+        "realm"   => "dracidoupe.cz",
+        "require" => "valid-user"
+        )
+)
+
+
   var.phpsocket = "/var/www/fastcgi/sockets/w-dracidoupe-cz/dracidoupe.cz"
   var.phpini = "/var/www/dracidoupe.cz/www_root/www/php/php.ini"
   var.servername = "dracidoupe.cz"

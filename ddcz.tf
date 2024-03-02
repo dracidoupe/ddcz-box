@@ -11,7 +11,6 @@ terraform {
     key    = "ddcz/state"
     region = "eu-central-1"
   }
-}
 
 
 provider "aws" {
@@ -516,6 +515,12 @@ resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
 
   aliases = [local.user_uploads_domain]
 
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]

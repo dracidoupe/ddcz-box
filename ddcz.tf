@@ -4,12 +4,14 @@ terraform {
     key    = "ddcz/state"
     region = "eu-central-1"
   }
-}
 
-
-provider "aws" {
-  version = "~> 2.0"
-  region  = "eu-central-1"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 2.0"
+      region  = "eu-central-1"
+    }
+  }
 }
 
 locals {
@@ -347,6 +349,12 @@ resource "aws_cloudfront_distribution" "s3_ddcz_uploads_dist" {
   }
   enabled         = true
   is_ipv6_enabled = true
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
